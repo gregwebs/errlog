@@ -87,6 +87,12 @@ func (l *logger) Debug(uErr error) bool {
 	stLines := ParseStackTrace(1 + l.stackDepthOverload)
 	if stLines == nil || len(stLines) < 1 {
 		l.Printf("Error: %s", uErr)
+	}
+	return l.PrintStackLines(uErr, stLines)
+}
+
+func (l *logger) PrintStackLines(uErr error, stLines []StackTraceItem) bool {
+	if stLines == nil || len(stLines) < 1 {
 		l.Printf("Errlog tried to debug the error but the stack trace seems empty. If you think this is an error, please open an issue at https://github.com/snwfdhmp/errlog/issues/new and provide us logs to investigate.")
 		return true
 	}
