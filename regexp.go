@@ -2,13 +2,13 @@ package errlog
 
 import (
 	"fmt"
+	"log/slog"
 	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -37,12 +37,12 @@ type StackTraceItem struct {
 	MysteryNumber int64 // don't know what this is, no documentation found, if you know please let me know via a PR !
 }
 
-func parseStackTrace(deltaDepth int) []StackTraceItem {
+func ParseStackTrace(deltaDepth int) []StackTraceItem {
 	fmt.Println(string(debug.Stack()))
-	return parseAnyStackTrace(string(debug.Stack()), deltaDepth)
+	return ParseAnyStackTrace(string(debug.Stack()), deltaDepth)
 }
 
-func parseAnyStackTrace(stackStr string, deltaDepth int) []StackTraceItem {
+func ParseAnyStackTrace(stackStr string, deltaDepth int) []StackTraceItem {
 	stackArr := strings.Split(stackStr, "\n")
 	if len(stackArr) < 2*(2+deltaDepth) {
 		return nil
@@ -79,7 +79,7 @@ func parseAnyStackTrace(stackStr string, deltaDepth int) []StackTraceItem {
 	return sti
 }
 
-//findFuncLine finds line where func is declared
+// findFuncLine finds line where func is declared
 func findFuncLine(lines []string, lineNumber int) int {
 	for i := lineNumber; i > 0; i-- {
 		if regexpFuncLine.Match([]byte(lines[i])) {
@@ -90,7 +90,7 @@ func findFuncLine(lines []string, lineNumber int) int {
 	return -1
 }
 
-//findFailingLine finds line where <var> is defined, if Debug(<var>) is present on lines[debugLine]. funcLine serves as max
+// findFailingLine finds line where <var> is defined, if Debug(<var>) is present on lines[debugLine]. funcLine serves as max
 func findFailingLine(lines []string, funcLine int, debugLine int) (failingLineIndex, columnStart, columnEnd int) {
 	failingLineIndex = -1 //init error flag
 
@@ -106,21 +106,21 @@ func findFailingLine(lines []string, funcLine int, debugLine int) (failingLineIn
 
 	//start to search for var definition
 	for i := debugLine; i >= funcLine && i > 0; i-- { // going reverse from debug line to funcLine
-		logrus.Debugf("%d: %s", i, lines[i]) // print line for debug
+		slog.Debug(fmt.Sprintf("%d: %s", i, lines[i])) // print line for debug
 
 		// early skipping some cases
 		if strings.Trim(lines[i], " \n\t") == "" { // skip if line is blank
-			logrus.Debugf(color.BlueString("%d: ignoring blank line", i))
+			slog.Debug(fmt.Sprintf(color.BlueString("%d: ignoring blank line", i)))
 			continue
 		} else if len(lines[i]) >= 2 && lines[i][:2] == "//" { // skip if line is a comment line (note: comments of type '/*' can be stopped inline and code may be placed after it, therefore we should pass line if '/*' starts the line)
-			logrus.Debugf(color.BlueString("%d: ignoring comment line", i))
+			slog.Debug(fmt.Sprintf(color.BlueString("%d: ignoring comment line", i)))
 			continue
 		}
 
 		//search for var definition
 		index := reFindVar.FindStringSubmatchIndex(lines[i])
 		if index == nil { //if not found, continue searching with next line
-			logrus.Debugf(color.BlueString("%d: var definition not found for '%s' (regexp no match).", i, varName))
+			slog.Debug(fmt.Sprintf(color.BlueString("%d: var definition not found for '%s' (regexp no match).", i, varName)))
 			continue
 		}
 		// At that point we found our definition
@@ -144,7 +144,7 @@ func findFailingLine(lines []string, funcLine int, debugLine int) (failingLineIn
 		}
 
 		if columnEnd == 0 { //columnEnd was not found
-			logrus.Debugf("Fixing value of columnEnd (0). Defaulting to end of failing line.")
+			slog.Debug("Fixing value of columnEnd (0). Defaulting to end of failing line.")
 			columnEnd = len(lines[i]) - 1
 		}
 		return

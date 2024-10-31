@@ -1,19 +1,19 @@
 package errlog
 
 import (
+	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/afero"
 )
 
 var (
 	gopath = os.Getenv("GOPATH")
 )
 
-//Logger interface allows to log an error, or to print source code lines. Check out NewLogger function to learn more about Logger objects and Config.
+// Logger interface allows to log an error, or to print source code lines. Check out NewLogger function to learn more about Logger objects and Config.
 type Logger interface {
 	// Debug wraps up Logger debugging funcs related to an error
 	// If the given error is nil, it returns immediately
@@ -33,7 +33,7 @@ type Logger interface {
 	Disable(bool)
 }
 
-//Config holds the configuration for a logger
+// Config holds the configuration for a logger
 type Config struct {
 	PrintFunc               func(format string, data ...interface{}) //Printer func (eg: fmt.Printf)
 	LinesBefore             int                                      //How many lines to print *before* the error line when printing source code
@@ -54,13 +54,13 @@ type PrintSourceOptions struct {
 	Highlighted map[int][]int //map[lineIndex][columnstart, columnEnd] of chars to highlight
 }
 
-//logger holds logger object, implementing Logger interface
+// logger holds logger object, implementing Logger interface
 type logger struct {
 	config             *Config //config for the logger
 	stackDepthOverload int     //stack depth to ignore when reading stack
 }
 
-//NewLogger creates a new logger struct with given config
+// NewLogger creates a new logger struct with given config
 func NewLogger(cfg *Config) Logger {
 	l := logger{
 		config:             cfg,
@@ -84,7 +84,7 @@ func (l *logger) Debug(uErr error) bool {
 		return false
 	}
 
-	stLines := parseStackTrace(1 + l.stackDepthOverload)
+	stLines := ParseStackTrace(1 + l.stackDepthOverload)
 	if stLines == nil || len(stLines) < 1 {
 		l.Printf("Error: %s", uErr)
 		l.Printf("Errlog tried to debug the error but the stack trace seems empty. If you think this is an error, please open an issue at https://github.com/snwfdhmp/errlog/issues/new and provide us logs to investigate.")
@@ -113,14 +113,14 @@ func (l *logger) Debug(uErr error) bool {
 	return true
 }
 
-//DebugSource prints certain lines of source code of a file for debugging, using (*logger).config as configurations
+// DebugSource prints certain lines of source code of a file for debugging, using (*logger).config as configurations
 func (l *logger) DebugSource(filepath string, debugLineNumber int) {
 	filepathShort := filepath
 	if gopath != "" {
 		filepathShort = strings.Replace(filepath, gopath+"/src/", "", -1)
 	}
 
-	b, err := afero.ReadFile(fs, filepath)
+	b, err := os.ReadFile(filepath)
 	if err != nil {
 		l.Printf("errlog: cannot read file '%s': %s. If sources are not reachable in this environment, you should set PrintSource=false in logger config.", filepath, err)
 		return
@@ -190,24 +190,24 @@ func (l *logger) Doctor() (neededDoctor bool) {
 
 	if l.config.PrintFunc == nil {
 		neededDoctor = true
-		logrus.Debug("PrintFunc not set for this logger. Replacing with DefaultLoggerPrintFunc.")
+		slog.Debug("PrintFunc not set for this logger. Replacing with DefaultLoggerPrintFunc.")
 		l.config.PrintFunc = DefaultLoggerPrintFunc
 	}
 
 	if l.config.LinesBefore < 0 {
 		neededDoctor = true
-		logrus.Debugf("LinesBefore is '%d' but should not be <0. Setting to 0.", l.config.LinesBefore)
+		slog.Debug(fmt.Sprintf("LinesBefore is '%d' but should not be <0. Setting to 0.", l.config.LinesBefore))
 		l.config.LinesBefore = 0
 	}
 
 	if l.config.LinesAfter < 0 {
 		neededDoctor = true
-		logrus.Debugf("LinesAfters is '%d' but should not be <0. Setting to 0.", l.config.LinesAfter)
+		slog.Debug(fmt.Sprintf("LinesAfters is '%d' but should not be <0. Setting to 0.", l.config.LinesAfter))
 		l.config.LinesAfter = 0
 	}
 
 	if neededDoctor && !debugMode {
-		logrus.Warn("errlog: Doctor() has detected and fixed some problems on your logger configuration. It might have modified your configuration. Check logs by enabling debug. 'errlog.SetDebugMode(true)'.")
+		slog.Warn("errlog: Doctor() has detected and fixed some problems on your logger configuration. It might have modified your configuration. Check logs by enabling debug. 'errlog.SetDebugMode(true)'.")
 	}
 
 	return
@@ -225,12 +225,12 @@ func (l *logger) printStack(stLines []StackTraceItem) {
 	}
 }
 
-//Printf is the function used to log
+// Printf is the function used to log
 func (l *logger) Printf(format string, data ...interface{}) {
 	l.config.PrintFunc(format, data...)
 }
 
-//Overload adds depths to remove when parsing next stack trace
+// Overload adds depths to remove when parsing next stack trace
 func (l *logger) Overload(amount int) {
 	l.stackDepthOverload += amount
 }

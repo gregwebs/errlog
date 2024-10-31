@@ -2,14 +2,14 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
-	"github.com/sirupsen/logrus"
-	"github.com/snwfdhmp/errlog"
+	"github.com/gregwebs/errlog"
 )
 
 var (
 	debug = errlog.NewLogger(&errlog.Config{
-		PrintFunc:          logrus.Errorf,
+		PrintFunc:          func(format string, args ...any) { fmt.Printf(format, args...) },
 		LinesBefore:        6,
 		LinesAfter:         3,
 		PrintError:         true,
@@ -20,11 +20,11 @@ var (
 )
 
 func main() {
-	logrus.Print("Start of the program")
+	fmt.Println("Start of the program")
 
 	wrapingFunc()
 
-	logrus.Print("End of the program")
+	fmt.Println("End of the program")
 }
 
 func wrapingFunc() {
@@ -48,7 +48,7 @@ func someBigFunction() {
 }
 
 func someSmallFunction() {
-	logrus.Print("I do things !")
+	fmt.Println("I do things !")
 }
 
 func someNastyFunction() error {
